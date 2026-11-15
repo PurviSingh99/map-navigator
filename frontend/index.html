@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NavPulse — Map Navigator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="nav">
+  <div class="nav-inner">
+    <a href="#home" class="brand"><span class="logo">◎</span>Nav<span>Pulse</span></a>
+    <nav class="links">
+      <a href="#home">Home</a><a href="#how">How It Works</a><a href="#dashboard" data-tab="planner">Navigator</a>
+      <a href="#dashboard" data-tab="saved">Saved Places</a><a href="#faqs">FAQs</a>
+    </nav>
+    <span id="apiBadge" class="pill offline"><i></i><b>API Offline</b></span>
+  </div>
+</header>
+
+<section class="hero" id="home">
+  <div class="wrap">
+    <p class="eyebrow">Geospatial routing platform</p>
+    <h1>Precision Routing &amp; <em>Geospatial Telemetry</em></h1>
+    <p class="sub">Geocode any address, compute the shortest path, and see distance, ETA and cost in one clean view. Every request runs through a Flask backend and your saved places live in SQLite.</p>
+    <a class="btn primary lg" href="#dashboard">Launch Navigator</a>
+  </div>
+</section>
+
+<section class="section" id="how">
+  <div class="wrap">
+    <h2 class="title">How It Works</h2>
+    <div class="grid4">
+      <article class="card step"><span class="num">1</span><h3>Address Geocoding</h3><p>Type a place name and the backend resolves it to coordinates through OpenStreetMap Nominatim.</p></article>
+      <article class="card step"><span class="num">2</span><h3>Shortest-Path Routing</h3><p>Coordinates go to the OSRM engine, which returns the optimal route geometry and turn instructions.</p></article>
+      <article class="card step"><span class="num">3</span><h3>Telemetry &amp; Costing</h3><p>Distance, mode-adjusted ETA and an estimated travel cost in ₹ are computed for Drive, Bike or Walk.</p></article>
+      <article class="card step"><span class="num">4</span><h3>SQLite Persistence</h3><p>Save destinations to <code>navigator.db</code> and reload them into the planner whenever you need.</p></article>
+    </div>
+  </div>
+</section>
+
+<section class="section alt" id="dashboard">
+  <div class="wrap">
+    <h2 class="title">Navigator Dashboard</h2>
+    <div class="tabs" role="tablist">
+      <button class="tab active" data-tab="planner" role="tab">Route Planner &amp; Map</button>
+      <button class="tab" data-tab="saved" role="tab">Saved Places</button>
+    </div>
+
+    <div id="tab-planner" class="panel">
+      <div class="dash">
+        <aside class="card side">
+          <label>Origin
+            <div class="field"><input id="origin" placeholder="e.g. India Gate, New Delhi" autocomplete="off"><ul class="sugg" id="sugg-origin"></ul></div>
+          </label>
+          <button id="swap" class="swap" title="Swap origin and destination" aria-label="Swap">⇅</button>
+          <label>Destination
+            <div class="field"><input id="destination" placeholder="e.g. NSUT, Dwarka" autocomplete="off"><ul class="sugg" id="sugg-destination"></ul></div>
+          </label>
+          <div class="modes" role="radiogroup" aria-label="Travel mode">
+            <label><input type="radio" name="mode" value="driving" checked><span>🚗 Drive</span></label>
+            <label><input type="radio" name="mode" value="cycling"><span>🚲 Bike</span></label>
+            <label><input type="radio" name="mode" value="walking"><span>🚶 Walk</span></label>
+          </div>
+          <button id="findRoute" class="btn primary block">Find Route</button>
+          <button id="saveDest" class="btn ghost block">Save Destination</button>
+          <p id="msg" class="msg" role="status"></p>
+        </aside>
+
+        <div class="main">
+          <div class="kpis">
+            <div class="card kpi"><span>Distance (km)</span><strong id="kDist">—</strong></div>
+            <div class="card kpi"><span>ETA (mins)</span><strong id="kEta">—</strong></div>
+            <div class="card kpi"><span>Est. Fuel/Cost</span><strong id="kCost">—</strong></div>
+          </div>
+          <div id="map" class="card"></div>
+          <div class="card tablewrap">
+            <table>
+              <thead><tr><th>Step #</th><th>Instruction</th><th>Distance</th></tr></thead>
+              <tbody id="steps"><tr><td colspan="3" class="empty">Find a route to see turn-by-turn directions.</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-saved" class="panel" hidden>
+      <div class="card tablewrap">
+        <table>
+          <thead><tr><th>Name</th><th>Coordinates</th><th>Actions</th></tr></thead>
+          <tbody id="places"><tr><td colspan="3" class="empty">No saved places yet.</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="faqs">
+  <div class="wrap">
+    <h2 class="title">Frequently Asked Questions</h2>
+    <div class="grid3">
+      <article class="card faq"><h3>How is routing calculated?</h3><p>The Flask backend calls the public OSRM routing engine, which finds the shortest path over OpenStreetMap road data and returns geometry plus step-by-step maneuvers.</p></article>
+      <article class="card faq"><h3>How are addresses found?</h3><p>Nominatim geocodes free-text queries into latitude and longitude. The backend returns the top five matches so you can pick the right one.</p></article>
+      <article class="card faq"><h3>How does the Flask REST API fit in?</h3><p>The browser only talks to Flask. Flask handles Nominatim, OSRM and SQLite, which avoids CORS problems and keeps third-party calls off the client.</p></article>
+    </div>
+  </div>
+</section>
+
+<footer class="footer"><div class="wrap"><span>NavPulse</span><span>Built at NSUT, New Delhi</span></div></footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
