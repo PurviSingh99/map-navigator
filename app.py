@@ -46,6 +46,9 @@ init_db()
 @app.route("/")
 def index():
     return send_from_directory(app.static_folder, "index.html")
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    return jsonify({"status": "online"})
 
 @app.get("/api/health")
 def health():
