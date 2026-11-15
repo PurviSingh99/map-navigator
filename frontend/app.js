@@ -12,19 +12,24 @@ async function api(path, opts = {}) {
   if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
   return data;
 }
-function say(text, kind = "") { const m = $("msg"); m.textContent = text; m.className = "msg " + kind; }
+function say(text, kind = "") { const m = $("msg"); if (m) { m.textContent = text; m.className = "msg " + kind; } }
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 // ---------- API health badge ----------
 async function checkHealth() {
   const b = $("apiBadge");
+  if (!b) return;
   try {
     const d = await api("/api/health");
-    const ok = d.status === "ok";
+    // Updated to accept "online" or "ok" from Flask backend
+    const ok = d.status === "online" || d.status === "ok";
     b.className = "pill " + (ok ? "online" : "offline");
-    b.querySelector("b").textContent = ok ? "API Online" : "API Offline";
+    const boldText = b.querySelector("b");
+    if (boldText) boldText.textContent = ok ? "API Online" : "API Offline";
   } catch {
-    b.className = "pill offline"; b.querySelector("b").textContent = "API Offline";
+    b.className = "pill offline"; 
+    const boldText = b.querySelector("b");
+    if (boldText) boldText.textContent = "API Offline";
   }
 }
 checkHealth(); setInterval(checkHealth, 15000);
@@ -32,9 +37,9 @@ checkHealth(); setInterval(checkHealth, 15000);
 // ---------- Tabs ----------
 function showTab(name) {
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === name));
-  $("tab-planner").hidden = name !== "planner";
-  $("tab-saved").hidden = name !== "saved";
-  if (name === "planner") setTimeout(() => map.invalidateSize(), 50);
+  if ($("tab-planner")) $("tab-planner").hidden = name !== "planner";
+  if ($("tab-saved")) $("tab-saved").hidden = name !== "saved";
+  if (name === "planner" && typeof map !== 'undefined') setTimeout(() => map.invalidateSize(), 50);
   if (name === "saved") loadPlaces();
 }
 document.querySelectorAll("[data-tab]").forEach((el) => el.addEventListener("click", () => showTab(el.dataset.tab)));
@@ -49,6 +54,7 @@ let layer = L.layerGroup().addTo(map);
 // ---------- Autocomplete ----------
 function wireSuggest(key) {
   const input = $(key), list = $("sugg-" + key);
+  if (!input || !list) return;
   let timer;
   input.addEventListener("input", () => {
     state[key] = null; // typed text invalidates picked coordinates
@@ -83,49 +89,62 @@ async function resolve(key) {
 }
 
 // ---------- Route ----------
-$("swap").onclick = () => {
-  [state.origin, state.destination] = [state.destination, state.origin];
-  const t = $("origin").value; $("origin").value = $("destination").value; $("destination").value = t;
-};
+const swapBtn = $("swap");
+if (swapBtn) {
+  swapBtn.onclick = () => {
+    [state.origin, state.destination] = [state.destination, state.origin];
+    const t = $("origin").value; $("origin").value = $("destination").value; $("destination").value = t;
+  };
+}
 
-$("findRoute").onclick = async () => {
-  const btn = $("findRoute"); btn.disabled = true; say("Finding route…");
-  try {
-    const [o, d] = [await resolve("origin"), await resolve("destination")];
-    const mode = document.querySelector("input[name=mode]:checked").value;
-    const r = await api("/api/route", {
-      method: "POST",
-      body: JSON.stringify({ origin: [o.lat, o.lon], destination: [d.lat, d.lon], mode }),
-    });
-    $("kDist").textContent = r.distance_km;
-    $("kEta").textContent = Math.round(r.duration_min);
-    $("kCost").textContent = r.est_cost;
+const findRouteBtn = $("findRoute");
+if (findRouteBtn) {
+  findRouteBtn.onclick = async () => {
+    findRouteBtn.disabled = true; say("Finding route…");
+    try {
+      const [o, d] = [await resolve("origin"), await resolve("destination")];
+      const modeEl = document.querySelector("input[name=mode]:checked");
+      const mode = modeEl ? modeEl.value : "driving";
+      const r = await api("/api/route", {
+        method: "POST",
+        body: JSON.stringify({ origin: [o.lat, o.lon], destination: [d.lat, d.lon], mode }),
+      });
+      if ($("kDist")) $("kDist").textContent = r.distance_km;
+      if ($("kEta")) $("kEta").textContent = Math.round(r.duration_min);
+      if ($("kCost")) $("kCost").textContent = r.est_cost;
 
-    layer.clearLayers();
-    const line = L.polyline(r.geometry, { color: "#0F766E", weight: 5, opacity: .9 }).addTo(layer);
-    L.marker([o.lat, o.lon]).addTo(layer).bindPopup("Start: " + esc(o.name));
-    L.marker([d.lat, d.lon]).addTo(layer).bindPopup("End: " + esc(d.name));
-    map.fitBounds(line.getBounds(), { padding: [30, 30] });
+      layer.clearLayers();
+      const line = L.polyline(r.geometry, { color: "#0F766E", weight: 5, opacity: .9 }).addTo(layer);
+      L.marker([o.lat, o.lon]).addTo(layer).bindPopup("Start: " + esc(o.name));
+      L.marker([d.lat, d.lon]).addTo(layer).bindPopup("End: " + esc(d.name));
+      map.fitBounds(line.getBounds(), { padding: [30, 30] });
 
-    $("steps").innerHTML = r.steps.map((s, i) =>
-      `<tr><td>${i + 1}</td><td>${esc(s.instruction)}</td><td>${fmtDist(s.distance_m)}</td></tr>`).join("");
-    say("Route ready.", "ok");
-  } catch (e) { say(e.message, "err"); }
-  btn.disabled = false;
-};
+      if ($("steps")) {
+        $("steps").innerHTML = r.steps.map((s, i) =>
+          `<tr><td>${i + 1}</td><td>${esc(s.instruction)}</td><td>${fmtDist(s.distance_m)}</td></tr>`).join("");
+      }
+      say("Route ready.", "ok");
+    } catch (e) { say(e.message, "err"); }
+    findRouteBtn.disabled = false;
+  };
+}
 const fmtDist = (m) => (m >= 1000 ? (m / 1000).toFixed(1) + " km" : Math.round(m) + " m");
 
 // ---------- Saved places ----------
-$("saveDest").onclick = async () => {
-  try {
-    const d = await resolve("destination");
-    await api("/api/places", { method: "POST", body: JSON.stringify({ name: d.name, lat: d.lat, lon: d.lon }) });
-    say("Destination saved.", "ok");
-  } catch (e) { say(e.message, "err"); }
-};
+const saveDestBtn = $("saveDest");
+if (saveDestBtn) {
+  saveDestBtn.onclick = async () => {
+    try {
+      const d = await resolve("destination");
+      await api("/api/places", { method: "POST", body: JSON.stringify({ name: d.name, lat: d.lat, lon: d.lon }) });
+      say("Destination saved.", "ok");
+    } catch (e) { say(e.message, "err"); }
+  };
+}
 
 async function loadPlaces() {
   const body = $("places");
+  if (!body) return;
   try {
     const places = await api("/api/places");
     if (!places.length) { body.innerHTML = '<tr><td colspan="3" class="empty">No saved places yet.</td></tr>'; return; }
