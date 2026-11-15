@@ -4,7 +4,10 @@ from flask import Flask, jsonify, request, g, send_from_directory
 from flask_cors import CORS
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, "navigator.db")
+if "RENDER" in os.environ:
+    DB_PATH = "/tmp/navigator.db"
+else:
+    DB_PATH = os.path.join(BASE_DIR, "navigator.db")
 UA = {"User-Agent": "NavPulse/1.0 (NSUT student project)"}
 
 app = Flask(__name__, static_folder=os.path.join(BASE_DIR, "frontend"), static_url_path="")
